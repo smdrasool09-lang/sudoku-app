@@ -70,9 +70,10 @@
 <div id="msg" class="info">Load a puzzle and click Solve.</div>
 
 <script>
-  // ── Fix: always talk to Flask on port 5000, regardless of how this file is opened ──
-  // If opened via Live Server (5500) or file://, we still POST to Flask (5000)
-  const API = (window.location.port === '5000') ? '' : 'http://127.0.0.1:5000';
+  // ── Always use relative URL — works both locally (Flask) and on Render ──
+  // Do NOT hardcode 127.0.0.1 — that breaks in production.
+  // Flask serves this HTML file, so /solve always points to the right server.
+  const API = '';
 
   const EXAMPLE = [
     [5,3,0,0,7,0,0,0,0],
@@ -142,7 +143,7 @@
   async function solveIt() {
     msg('Solving...', 'info');
     try {
-      const res = await fetch(API + '/solve', {
+      const res = await fetch(API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ board: readBoard() })
@@ -159,7 +160,7 @@
         msg('No solution exists.', 'err');
       }
     } catch (e) {
-      msg('Error: Make sure Flask is running  →  python app.py', 'err');
+      msg('Error connecting to server.', 'err');
     }
   }
 </script>
