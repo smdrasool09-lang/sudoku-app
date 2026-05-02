@@ -2,23 +2,25 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(__name__, static_folder="static")
 CORS(app)
 
-# ─── Health Check (Required by Render) ───────────────────
+# ── Serve frontend ──────────────────────────────────────────
 @app.route("/")
 def index():
     return send_from_directory("static", "index.html")
 
+# ── Health check (Render requires this) ────────────────────
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "service": "Sudoku Solver"}), 200
+    return jsonify({"status": "ok"}), 200
 
+# ── Favicon (suppress 404) ─────────────────────────────────
 @app.route("/favicon.ico")
 def favicon():
     return "", 204
 
-# ─── Sudoku Logic ─────────────────────────────────────────
+# ── Sudoku logic ───────────────────────────────────────────
 def is_valid(board, row, col, num):
     if num in board[row]:
         return False
@@ -44,7 +46,7 @@ def solve(board):
                 return False
     return True
 
-# ─── API Endpoint ─────────────────────────────────────────
+# ── API endpoint ───────────────────────────────────────────
 @app.route("/solve", methods=["POST"])
 def solve_sudoku():
     data = request.get_json()
@@ -53,9 +55,9 @@ def solve_sudoku():
     board = data["board"]
     if solve(board):
         return jsonify({"status": "solved", "board": board}), 200
-    return jsonify({"status": "no_solution", "message": "No solution exists"}), 200
+    return jsonify({"status": "no_solution"}), 200
 
-# ─── Run ──────────────────────────────────────────────────
+# ── Start ──────────────────────────────────────────────────
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port)
