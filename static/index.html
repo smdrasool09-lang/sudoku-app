@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sudoku Solver</title>
+  <style>
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 30px;
+      margin: 0;
+    }
+
+    h1 { font-size: 32px; color: #e94560; margin-bottom: 5px; }
+    p.sub { color: #aaa; margin-bottom: 20px; }
+
+    table { border-collapse: collapse; margin: 0 auto 20px; }
+
+    td { border: 1px solid #444; width: 48px; height: 48px; }
+    td:nth-child(3n)    { border-right: 3px solid #e94560; }
+    td:nth-child(9)     { border-right: 1px solid #444; }
+    tr:nth-child(3n) td { border-bottom: 3px solid #e94560; }
+    tr:nth-child(9)  td { border-bottom: 1px solid #444; }
+
+    input {
+      width: 100%; height: 100%;
+      background: #16213e; color: #fff;
+      border: none; text-align: center;
+      font-size: 20px; font-weight: bold; outline: none;
+    }
+    input.given  { color: #f5a623; }
+    input.solved { color: #4ecca3; background: #0f3460; }
+
+    .buttons { margin: 10px 0; }
+
+    button {
+      margin: 5px; padding: 10px 22px;
+      font-size: 15px; font-weight: bold;
+      border: none; border-radius: 8px; cursor: pointer;
+    }
+    button:hover { opacity: 0.85; }
+
+    #btn-load  { background: #f5a623; color: #000; }
+    #btn-solve { background: #4ecca3; color: #000; }
+    #btn-clear { background: #e94560; color: #fff; }
+
+    #msg {
+      margin-top: 15px; font-size: 15px;
+      padding: 10px 20px; border-radius: 8px; display: inline-block;
+    }
+    #msg.ok   { background: #4ecca3; color: #000; }
+    #msg.err  { background: #e94560; color: #fff; }
+    #msg.info { background: #333; color: #fff; }
+  </style>
+</head>
+<body>
+
+<h1>Sudoku Solver</h1>
+<p class="sub">Backtracking Algorithm — Python + HTML</p>
+
+<table id="grid"></table>
+
+<div class="buttons">
+  <button id="btn-load"  onclick="loadExample()">Load Example</button>
+  <button id="btn-solve" onclick="solveIt()">Solve</button>
+  <button id="btn-clear" onclick="clearGrid()">Clear</button>
+</div>
+
+<div id="msg" class="info">Load a puzzle and click Solve.</div>
+
+<script>
+  // ── Fix: always talk to Flask on port 5000, regardless of how this file is opened ──
+  // If opened via Live Server (5500) or file://, we still POST to Flask (5000)
+  const API = (window.location.port === '5000') ? '' : 'http://127.0.0.1:5000';
+
+  const EXAMPLE = [
+    [5,3,0,0,7,0,0,0,0],
+    [6,0,0,1,9,5,0,0,0],
+    [0,9,8,0,0,0,0,6,0],
+    [8,0,0,0,6,0,0,0,3],
+    [4,0,0,8,0,3,0,0,1],
+    [7,0,0,0,2,0,0,0,6],
+    [0,6,0,0,0,0,2,8,0],
+    [0,0,0,4,1,9,0,0,5],
+    [0,0,0,0,8,0,0,7,9]
+  ];
+
+  // Build grid
+  const table = document.getElementById('grid');
+  for (let r = 0; r < 9; r++) {
+    const tr = document.createElement('tr');
+    for (let c = 0; c < 9; c++) {
+      const td = document.createElement('td');
+      const inp = document.createElement('input');
+      inp.id = `c${r}${c}`;
+      inp.maxLength = 1;
+      inp.oninput = () => { inp.value = inp.value.replace(/[^1-9]/g, ''); };
+      td.appendChild(inp);
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+
+  function cell(r, c) { return document.getElementById(`c${r}${c}`); }
+
+  function msg(text, type) {
+    const el = document.getElementById('msg');
+    el.textContent = text;
+    el.className = type;
+  }
+
+  function loadExample() {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const v = EXAMPLE[r][c];
+        const el = cell(r, c);
+        el.value = v || '';
+        el.className = v ? 'given' : '';
+        el.disabled = !!v;
+      }
+    }
+    msg('Example loaded. Click Solve!', 'info');
+  }
+
+  function clearGrid() {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const el = cell(r, c);
+        el.value = ''; el.className = ''; el.disabled = false;
+      }
+    }
+    msg('Grid cleared.', 'info');
+  }
+
+  function readBoard() {
+    return Array.from({length: 9}, (_, r) =>
+      Array.from({length: 9}, (_, c) => parseInt(cell(r, c).value) || 0)
+    );
+  }
+
+  async function solveIt() {
+    msg('Solving...', 'info');
+    try {
+      const res = await fetch(API + '/solve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ board: readBoard() })
+      });
+      const data = await res.json();
+      if (data.status === 'solved') {
+        for (let r = 0; r < 9; r++)
+          for (let c = 0; c < 9; c++) {
+            const el = cell(r, c);
+            if (!el.disabled) { el.value = data.board[r][c]; el.className = 'solved'; }
+          }
+        msg('Solved!', 'ok');
+      } else {
+        msg('No solution exists.', 'err');
+      }
+    } catch (e) {
+      msg('Error: Make sure Flask is running  →  python app.py', 'err');
+    }
+  }
+</script>
+
+</body>
+</html>
